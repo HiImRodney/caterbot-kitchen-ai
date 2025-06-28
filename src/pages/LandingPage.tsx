@@ -1,86 +1,118 @@
-// Landing Page Component
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { QrCode, MessageCircle, BarChart3, ArrowRight } from 'lucide-react';
+import { QrCode, Wrench, BarChart3, Smartphone, Zap } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="max-w-4xl mx-auto text-center">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            🤖 CaterBot
-          </h1>
-          <p className="text-xl text-blue-100 mb-2">
-            AI-Powered Kitchen Equipment Assistant
-          </p>
-          <p className="text-blue-200">
-            Troubleshoot equipment instantly • Save on service calls • Keep kitchen running
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <Wrench className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">CaterBot</h1>
+            </div>
+            <Link 
+              to="/dashboard" 
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Manager Dashboard
+            </Link>
+          </div>
         </div>
+      </header>
 
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
-          <Link
-            to="/chat"
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-6 transition-colors group"
-          >
-            <MessageCircle className="w-12 h-12 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-            <h3 className="text-lg font-semibold mb-2">Start Troubleshooting</h3>
-            <p className="text-blue-100 text-sm">Get instant AI help with equipment issues</p>
-          </Link>
-
-          <Link
-            to="/equipment"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg p-6 transition-colors group"
-          >
-            <QrCode className="w-12 h-12 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-            <h3 className="text-lg font-semibold mb-2">Scan Equipment</h3>
-            <p className="text-indigo-100 text-sm">QR scan for instant equipment context</p>
-          </Link>
-
-          <div className="bg-green-600 hover:bg-green-700 text-white rounded-lg p-6 transition-colors group cursor-pointer">
-            <BarChart3 className="w-12 h-12 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-            <h3 className="text-lg font-semibold mb-2">View Savings</h3>
-            <p className="text-green-100 text-sm">Track ROI and cost reductions</p>
+      {/* Hero Section */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center mb-16">
+          <h2 className="text-5xl font-bold text-gray-900 mb-6">
+            AI-Powered Equipment Assistant
+          </h2>
+          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            Get instant troubleshooting help for restaurant equipment. 
+            Scan QR codes, describe issues, and receive expert guidance 
+            powered by AI.
+          </p>
+          
+          {/* Quick Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link
+              to="/scan"
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg font-semibold text-lg flex items-center justify-center space-x-3 transition-colors"
+            >
+              <QrCode className="w-6 h-6" />
+              <span>Scan Equipment QR Code</span>
+            </Link>
+            
+            <Link
+              to="/equipment"
+              className="w-full sm:w-auto bg-white hover:bg-gray-50 text-blue-600 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold text-lg flex items-center justify-center space-x-3 transition-colors"
+            >
+              <Wrench className="w-6 h-6" />
+              <span>Browse Equipment</span>
+            </Link>
           </div>
         </div>
 
-        {/* TOCA Demo Status */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 mb-8">
-          <h3 className="text-white text-lg font-semibold mb-3">🍕 TOCA Test Kitchen - Demo Ready</h3>
-          <div className="grid md:grid-cols-2 gap-4 text-sm">
-            <div className="bg-green-500/20 rounded p-3">
-              <span className="text-green-300">✅ 22 Equipment Pieces Loaded</span>
+        {/* Feature Cards */}
+        <div className="grid md:grid-cols-3 gap-8 mb-16">
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Zap className="w-8 h-8 text-green-600" />
             </div>
-            <div className="bg-blue-500/20 rounded p-3">
-              <span className="text-blue-300">✅ AI Pipeline Active (£0.006 avg cost)</span>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Instant Help</h3>
+            <p className="text-gray-600">
+              Get immediate troubleshooting guidance without waiting for managers or technicians.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <QrCode className="w-8 h-8 text-blue-600" />
             </div>
-            <div className="bg-purple-500/20 rounded p-3">
-              <span className="text-purple-300">✅ Real-time Cost Tracking</span>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">QR Code Integration</h3>
+            <p className="text-gray-600">
+              Simply scan equipment QR codes to automatically identify and get contextual help.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <BarChart3 className="w-8 h-8 text-purple-600" />
             </div>
-            <div className="bg-orange-500/20 rounded p-3">
-              <span className="text-orange-300">✅ 60% Pattern Matching (Free)</span>
-            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Cost Tracking</h3>
+            <p className="text-gray-600">
+              Track maintenance costs and equipment performance with detailed analytics.
+            </p>
           </div>
         </div>
 
-        {/* CTA */}
-        <Link
-          to="/chat"
-          className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold transition-all transform hover:scale-105"
-        >
-          <span>Start TOCA Demo</span>
-          <ArrowRight className="w-5 h-5" />
-        </Link>
-
-        {/* Footer */}
-        <div className="mt-12 text-blue-200 text-sm">
-          <p>Connected to: ypmrqzxipboumkjttkmt.supabase.co</p>
-          <p>Status: Live Production Environment</p>
+        {/* Mobile Installation CTA */}
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="flex items-center justify-center space-x-3 mb-4">
+            <Smartphone className="w-8 h-8 text-blue-600" />
+            <h3 className="text-2xl font-bold text-gray-900">Install CaterBot App</h3>
+          </div>
+          <p className="text-gray-600 mb-6">
+            Install CaterBot as a mobile app for quick access on the kitchen floor.
+          </p>
+          <button
+            onClick={() => {
+              // PWA installation logic
+              const deferredPrompt = (window as any).deferredPrompt;
+              if (deferredPrompt) {
+                deferredPrompt.prompt();
+              }
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+          >
+            Add to Home Screen
+          </button>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
