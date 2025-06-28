@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark light;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Custom styles for kitchen environments */
+.kitchen-optimized {
+  /* Large touch targets */
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+/* High contrast for equipment status */
+.equipment-operational {
+  @apply text-green-400 bg-green-500/20;
+}
+
+.equipment-maintenance {
+  @apply text-yellow-400 bg-yellow-500/20;
+}
+
+.equipment-broken {
+  @apply text-red-400 bg-red-500/20;
+}
+
+/* Chat message styling */
+.chat-message {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* PWA specific styles */
+@media (display-mode: standalone) {
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
