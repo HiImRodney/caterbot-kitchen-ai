@@ -9,11 +9,6 @@ import { createClient } from '@supabase/supabase-js';
 import LandingPage from './pages/LandingPage';
 import EquipmentGrid from './pages/EquipmentGrid';
 import ChatInterface from './pages/ChatInterface';
-import QRScanner from './components/QRScanner';
-
-// Context Providers
-import { EquipmentProvider } from './contexts/EquipmentContext';
-import { UserProvider } from './contexts/UserContext';
 
 // Supabase Configuration - LIVE PRODUCTION ENDPOINTS
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ypmrqzxipboumkjttkmt.supabase.co';
@@ -24,41 +19,36 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // Main App Component
 const App: React.FC = () => {
   return (
-    <UserProvider>
-      <EquipmentProvider>
-        <Router>
-          <div className="App min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-            <Routes>
-              {/* Landing & Navigation */}
-              <Route path="/" element={<LandingPage />} />
-              
-              {/* Equipment Selection Flow */}
-              <Route path="/equipment" element={<EquipmentGrid />} />
-              <Route path="/scan" element={<QRScanner />} />
-              
-              {/* Chat Interface */}
-              <Route path="/chat/:sessionId?" element={<ChatInterface />} />
-            </Routes>
-          </div>
-        </Router>
-      </EquipmentProvider>
-    </UserProvider>
+    <Router>
+      <div className="App min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
+        <Routes>
+          {/* Landing & Navigation */}
+          <Route path="/" element={<LandingPage />} />
+          
+          {/* Equipment Selection Flow */}
+          <Route path="/equipment" element={<EquipmentGrid />} />
+          
+          {/* Chat Interface - Main Feature */}
+          <Route path="/chat/:sessionId?" element={<ChatInterface />} />
+        </Routes>
+      </div>
+    </Router>
   );
 };
 
 // ============================================================================
-// API UTILITIES
+// API UTILITIES - Connected to Live Edge Functions
 // ============================================================================
 
-// Chat API integration
+// Chat API integration - connects to live master-chat Edge Function
 export const sendChatMessage = async (message: string, equipmentContext?: any) => {
   try {
     const { data, error } = await supabase.functions.invoke('master-chat', {
       body: {
         message,
         equipment_context: equipmentContext,
-        user_id: 'test-user',
-        site_id: 'TOCA-TEST-001'
+        user_id: 'demo-user',
+        site_id: import.meta.env.VITE_SITE_ID || 'TOCA-TEST-001'
       }
     });
 
@@ -70,11 +60,14 @@ export const sendChatMessage = async (message: string, equipmentContext?: any) =
   }
 };
 
-// QR Scanner API integration
+// QR Scanner API integration - connects to live equipment-context Edge Function
 export const scanQRCode = async (qrCode: string) => {
   try {
-    const { data, error } = await supabase.functions.invoke('qr-scanner', {
-      body: { qr_code: qrCode }
+    const { data, error } = await supabase.functions.invoke('equipment-context', {
+      body: { 
+        qr_code: qrCode,
+        site_id: import.meta.env.VITE_SITE_ID || 'TOCA-TEST-001'
+      }
     });
 
     if (error) throw error;
@@ -85,11 +78,14 @@ export const scanQRCode = async (qrCode: string) => {
   }
 };
 
-// Equipment context retrieval
+// Equipment context retrieval - connects to live database
 export const getEquipmentContext = async (qrCode: string) => {
   try {
     const { data, error } = await supabase.functions.invoke('equipment-context', {
-      body: { qr_code: qrCode }
+      body: { 
+        qr_code: qrCode,
+        site_id: import.meta.env.VITE_SITE_ID || 'TOCA-TEST-001'
+      }
     });
 
     if (error) throw error;
