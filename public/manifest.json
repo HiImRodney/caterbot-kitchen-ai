@@ -1,34 +1,83 @@
 {
-  "name": "CaterBot Equipment Assistant",
+  "name": "CaterBot Kitchen AI",
   "short_name": "CaterBot",
-  "description": "AI-powered kitchen equipment troubleshooting assistant",
+  "description": "AI-Powered Commercial Kitchen Equipment Troubleshooting Assistant",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1e40af",
-  "theme_color": "#2563eb",
-  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#1e40af",
+  "orientation": "portrait-primary",
   "scope": "/",
+  "lang": "en",
   "icons": [
     {
-      "src": "/pwa-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "pwa-64x64.png",
+      "sizes": "64x64",
+      "type": "image/png"
     },
     {
-      "src": "/pwa-512x512.png",
+      "src": "pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "pwa-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "utilities", "business"],
   "screenshots": [
     {
-      "src": "/screenshot-mobile.png",
-      "sizes": "390x844",
+      "src": "screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "screenshot-narrow.png",
+      "sizes": "640x1136",
       "type": "image/png",
       "form_factor": "narrow"
+    }
+  ],
+  "categories": ["business", "productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Scan QR Code",
+      "short_name": "Scan",
+      "description": "Quickly scan equipment QR code",
+      "url": "/scan",
+      "icons": [
+        {
+          "src": "pwa-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Equipment Grid",
+      "short_name": "Equipment",
+      "description": "Browse all equipment",
+      "url": "/equipment",
+      "icons": [
+        {
+          "src": "pwa-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Manager Dashboard",
+      "short_name": "Dashboard",
+      "description": "View analytics and reports",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "pwa-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

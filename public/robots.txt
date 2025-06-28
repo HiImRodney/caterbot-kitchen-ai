@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://caterbot-kitchen-ai.vercel.app/sitemap.xml
