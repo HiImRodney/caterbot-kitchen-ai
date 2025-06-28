@@ -1,47 +1,40 @@
-// Equipment Context Provider - Manages selected equipment state across the app
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
-
-export interface Equipment {
-  id: string;
-  qr_code: string;
-  custom_name: string;
-  equipment_type: string;
-  manufacturer: string;
-  model: string;
-  location: string;
-  site_name: string;
-  status: string;
-  category?: string;
+interface EquipmentContext {
+  equipment_id?: string;
+  equipment_type?: string;
+  equipment_name?: string;
+  location?: string;
+  qr_code?: string;
+  [key: string]: any;
 }
 
 interface EquipmentContextType {
-  currentEquipment: Equipment | null;
-  setCurrentEquipment: (equipment: Equipment | null) => void;
-  loading: boolean;
-  setLoading: (loading: boolean) => void;
+  currentEquipment: EquipmentContext | null;
+  setCurrentEquipment: (equipment: EquipmentContext | null) => void;
+  clearEquipment: () => void;
 }
 
-const EquipmentContext = createContext<EquipmentContextType | undefined>(undefined);
+const EquipmentContextObj = createContext<EquipmentContextType | undefined>(undefined);
 
 export const EquipmentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentEquipment, setCurrentEquipment] = useState<Equipment | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [currentEquipment, setCurrentEquipment] = useState<EquipmentContext | null>(null);
+
+  const clearEquipment = () => setCurrentEquipment(null);
 
   return (
-    <EquipmentContext.Provider value={{
+    <EquipmentContextObj.Provider value={{
       currentEquipment,
       setCurrentEquipment,
-      loading,
-      setLoading
+      clearEquipment
     }}>
       {children}
-    </EquipmentContext.Provider>
+    </EquipmentContextObj.Provider>
   );
 };
 
 export const useEquipment = () => {
-  const context = useContext(EquipmentContext);
+  const context = useContext(EquipmentContextObj);
   if (context === undefined) {
     throw new Error('useEquipment must be used within an EquipmentProvider');
   }
