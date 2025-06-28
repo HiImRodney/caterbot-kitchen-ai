@@ -9,12 +9,13 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'CaterBot Equipment Assistant',
+        name: 'CaterBot Kitchen AI',
         short_name: 'CaterBot',
-        description: 'AI-powered kitchen equipment troubleshooting assistant',
-        theme_color: '#2563eb',
-        background_color: '#1e40af',
+        description: 'AI-Powered Commercial Kitchen Equipment Troubleshooting Assistant',
+        theme_color: '#1e40af',
+        background_color: '#ffffff',
         display: 'standalone',
+        orientation: 'portrait',
         scope: '/',
         start_url: '/',
         icons: [
@@ -34,16 +35,24 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/ypmrqzxipboumkjttkmt\.supabase\.co\/functions\/v1\/.*/i,
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'api-cache',
+              cacheName: 'supabase-cache',
               expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
+                maxEntries: 50,
+                maxAgeSeconds: 300
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 365
               }
             }
           }
@@ -51,11 +60,24 @@ export default defineConfig({
       }
     })
   ],
-  build: {
-    outDir: 'dist',
-    sourcemap: true
+  define: {
+    'process.env': process.env
   },
   server: {
-    port: 3000
+    port: 3000,
+    host: true
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          supabase: ['@supabase/supabase-js'],
+          ui: ['lucide-react']
+        }
+      }
+    }
   }
 });
