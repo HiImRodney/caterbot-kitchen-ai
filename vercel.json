@@ -33,9 +33,5 @@
         }
       ]
     }
-  ],
-  "env": {
-    "VITE_SUPABASE_URL": "https://ypmrqzxipboumkjttkmt.supabase.co",
-    "VITE_SITE_ID": "TOCA-TEST-001"
-  }
+  ]
 }
