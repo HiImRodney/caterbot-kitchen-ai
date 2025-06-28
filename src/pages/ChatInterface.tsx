@@ -1,458 +1,492 @@
-// Chat Interface Component - AI-Powered Equipment Troubleshooting
-// Real-time messaging with equipment context and cost tracking
+// ============================================================================
+// LIVE CHAT INTERFACE COMPONENT
+// Connects to CaterBot Edge Functions with real-time features
+// ============================================================================
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { 
-  ArrowLeft, 
-  Send, 
-  Bot, 
-  User, 
-  AlertTriangle, 
-  Shield, 
-  Clock,
+  useSiteManagement, 
+  useEquipment, 
+  useChat, 
+  useCostTracking,
+  useQRScanner 
+} from '../hooks/useSupabase';
+
+// UI Components (assuming shadcn/ui or similar)
+import { Card, CardContent, CardHeader } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Badge } from '../components/ui/Badge';
+
+// Icons
+import { 
+  MessageCircle, 
+  Send,
+  Bot,
+  User,
+  QrCode,
+  Wifi,
+  WifiOff,
+  Settings,
   DollarSign,
-  Wrench,
   CheckCircle,
-  Copy,
-  MoreVertical
+  MapPin,
+  Thermometer
 } from 'lucide-react';
-import { useEquipment } from '../contexts/EquipmentContext';
-import { useUser } from '../contexts/UserContext';
-import { sendChatMessage } from '../App';
 
-interface ChatMessage {
-  id: string;
-  type: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: Date;
-  responseType?: 'pattern_match' | 'ai_escalation' | 'safety_escalation';
-  cost?: number;
-  metadata?: {
-    tokensUsed?: number;
-    model?: string;
-    containsSafetyEscalation?: boolean;
-  };
-}
+interface ChatInterfaceProps {}
 
-interface SessionStats {
-  messageCount: number;
-  totalCost: number;
-  sessionDuration: number;
-  responseTypes: {
-    pattern_match: number;
-    ai_escalation: number;
-    safety_escalation: number;
-  };
-}
-
-const ChatInterface: React.FC = () => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { currentEquipment } = useEquipment();
-  const { user } = useUser();
+const ChatInterface: React.FC<ChatInterfaceProps> = () => {
+  // Get session ID from URL params
+  const { sessionId } = useParams<{ sessionId?: string }>();
   
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [sessionStats, setSessionStats] = useState<SessionStats>({
-    messageCount: 0,
-    totalCost: 0,
-    sessionDuration: 0,
-    responseTypes: { pattern_match: 0, ai_escalation: 0, safety_escalation: 0 }
-  });
-  const [sessionStartTime] = useState(new Date());
+  // Live Supabase integration
+  const { currentSite, sites } = useSiteManagement();
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(null);
   
+  const { equipment, loading: equipmentLoading } = useEquipment(currentSite || '');
+  const { messages, sendMessage, sessionCost, loading: chatLoading } = useChat(currentSite || '', selectedEquipmentId || undefined);
+  const costStats = useCostTracking(currentSite || '');
+  const { handleQRCodeDetected, startScanning } = useQRScanner();
+  
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-select pizza station for demo
+  useEffect(() => {
+    if (equipment.length > 0 && !selectedEquipmentId) {
+      const pizzaStation = equipment.find(eq => eq.name.includes('Pizza Station'));
+      if (pizzaStation) {
+        setSelectedEquipmentId(pizzaStation.id);
+      } else {
+        // Fallback to first equipment
+        setSelectedEquipmentId(equipment[0].id);
+      }
+    }
+  }, [equipment, selectedEquipmentId]);
+
+  // Monitor online status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const currentEquipment = equipment.find(eq => eq.id === selectedEquipmentId);
+
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Update session duration every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const duration = Math.floor((Date.now() - sessionStartTime.getTime()) / 1000);
-      setSessionStats(prev => ({ ...prev, sessionDuration: duration }));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [sessionStartTime]);
-
-  // Initialize chat with equipment context
-  useEffect(() => {
-    if (currentEquipment) {
-      const welcomeMessage: ChatMessage = {
-        id: Date.now().toString(),
-        type: 'system',
-        content: `🔧 **Equipment Context Loaded**\n\n**${currentEquipment.custom_name}**\n${currentEquipment.equipment_type} • ${currentEquipment.location}\n\nI'm ready to help you troubleshoot this equipment. What issue are you experiencing?`,
-        timestamp: new Date()
-      };
-      setMessages([welcomeMessage]);
-    } else {
-      // General chat without specific equipment
-      const welcomeMessage: ChatMessage = {
-        id: Date.now().toString(),
-        type: 'system',
-        content: `👋 **Welcome to CaterBot**\n\nI'm here to help with kitchen equipment issues. You can:\n\n• Describe any equipment problem\n• Ask for troubleshooting steps\n• Get safety guidance\n\nWhat can I help you with today?`,
-        timestamp: new Date()
-      };
-      setMessages([welcomeMessage]);
-    }
-  }, [currentEquipment]);
-
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: inputMessage.trim(),
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-    setIsLoading(true);
-
+    if (!currentMessage.trim() || chatLoading || !currentSite) return;
+    
     try {
-      // Send message to our master-chat API
-      const response = await sendChatMessage(inputMessage.trim(), currentEquipment);
-
-      if (response.success) {
-        const assistantMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          type: 'assistant',
-          content: response.response || response.ai_response || 'I apologize, but I encountered an issue processing your request.',
-          timestamp: new Date(),
-          responseType: response.response_type,
-          cost: response.cost_gbp || response.estimated_cost_gbp || 0,
-          metadata: {
-            tokensUsed: response.response_metadata?.tokens_used?.total,
-            model: response.response_metadata?.model,
-            containsSafetyEscalation: response.response_metadata?.contains_safety_escalation || response.escalation_required
-          }
-        };
-
-        setMessages(prev => [...prev, assistantMessage]);
-
-        // Update session stats
-        setSessionStats(prev => ({
-          messageCount: prev.messageCount + 1,
-          totalCost: prev.totalCost + (assistantMessage.cost || 0),
-          sessionDuration: prev.sessionDuration,
-          responseTypes: {
-            ...prev.responseTypes,
-            [response.response_type]: prev.responseTypes[response.response_type] + 1
-          }
-        }));
-
-      } else {
-        throw new Error(response.error || 'Failed to get response');
-      }
-
-    } catch (error) {
-      console.error('Chat error:', error);
+      const response = await sendMessage(currentMessage, 'demo-user');
+      setCurrentMessage('');
       
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: `❌ **Connection Error**\n\nI'm having trouble connecting to the troubleshooting system. Please check your internet connection and try again.\n\n*If the problem persists, you can try:*\n• Refreshing the page\n• Using the equipment manual\n• Contacting your manager`,
-        timestamp: new Date(),
-        responseType: 'pattern_match'
-      };
-
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      inputRef.current?.focus();
+      // Handle special response types
+      if (response.escalation_required) {
+        console.log('Escalation required:', response);
+      }
+      
+      if (response.safety_warning) {
+        console.log('Safety warning:', response.safety_warning);
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+  const handleQRScan = async (qrCode: string) => {
+    if (!currentSite) return;
+    
+    const equipment = await handleQRCodeDetected(qrCode, currentSite);
+    if (equipment) {
+      setSelectedEquipmentId(equipment.id);
     }
   };
 
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  const TypingIndicator = () => (
+    <div className="flex items-center space-x-2 text-gray-500 text-sm">
+      <Bot className="w-4 h-4" />
+      <span>CaterBot is thinking</span>
+      <div className="flex space-x-1">
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+      </div>
+    </div>
+  );
 
-  const getResponseTypeColor = (type?: string) => {
-    const colors = {
-      'pattern_match': 'text-green-400 bg-green-500/20',
-      'ai_escalation': 'text-blue-400 bg-blue-500/20',
-      'safety_escalation': 'text-red-400 bg-red-500/20'
-    };
-    return colors[type as keyof typeof colors] || 'text-gray-400 bg-gray-500/20';
-  };
-
-  const getResponseTypeLabel = (type?: string) => {
-    const labels = {
-      'pattern_match': 'Pattern Match',
-      'ai_escalation': 'AI Response',
-      'safety_escalation': 'Safety Alert'
-    };
-    return labels[type as keyof typeof labels] || 'System';
-  };
-
-  const copyMessage = (content: string) => {
-    navigator.clipboard.writeText(content);
-  };
-
-  const quickResponses = [
-    "Equipment is not working at all",
-    "Temperature issues",
-    "Strange noises or vibrations", 
-    "Electrical problems",
-    "Cleaning and maintenance help",
-    "Safety concern"
-  ];
+  if (equipmentLoading) {
+    return (
+      <div className="max-w-6xl mx-auto p-4 flex items-center justify-center h-64">
+        <div className="text-center space-y-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-600">Loading TOCA equipment data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white flex flex-col">
+    <div className="max-w-6xl mx-auto p-4 space-y-4">
       {/* Header with Equipment Context */}
-      <header className="bg-black/20 backdrop-blur-sm border-b border-white/10 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-3">
-          {/* Top Row - Navigation and Session Info */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate(-1)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <ArrowLeft size={20} />
-              </button>
-              
-              <div>
-                <h1 className="text-lg font-bold">Equipment Assistant</h1>
-                {currentEquipment && (
-                  <p className="text-sm text-blue-200">{currentEquipment.custom_name}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1 text-green-400">
-                <Clock size={16} />
-                <span>{formatDuration(sessionStats.sessionDuration)}</span>
-              </div>
-              
-              <div className="flex items-center gap-1 text-blue-400">
-                <DollarSign size={16} />
-                <span>£{sessionStats.totalCost.toFixed(4)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Equipment Context Bar */}
-          {currentEquipment && (
-            <div className="bg-white/10 rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                  <Wrench size={20} className="text-blue-400" />
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-start">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Thermometer className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
-                  <p className="font-medium">{currentEquipment.custom_name}</p>
-                  <p className="text-sm text-blue-200">
-                    {currentEquipment.manufacturer} • {currentEquipment.location}
+                  <h1 className="text-xl font-bold text-gray-900">
+                    {currentEquipment?.name || 'No Equipment Selected'}
+                  </h1>
+                  <p className="text-gray-600">
+                    {currentEquipment ? `${currentEquipment.make} ${currentEquipment.model}` : 'Select equipment to start troubleshooting'}
                   </p>
                 </div>
-              </div>
-              
-              <div className="text-right">
-                <p className="text-xs text-gray-400">QR Code</p>
-                <p className="text-sm font-mono text-blue-300">{currentEquipment.qr_code}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* Messages Area */}
-      <main className="flex-1 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-4xl mx-auto w-full">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {/* Avatar */}
-              {message.type !== 'user' && (
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  message.type === 'system' ? 'bg-purple-500/20' : 'bg-blue-500/20'
-                }`}>
-                  {message.type === 'system' ? (
-                    <Wrench size={16} className="text-purple-400" />
+                
+                {/* Connection Status */}
+                <div className="flex items-center space-x-1">
+                  {isOnline ? (
+                    <Wifi className="w-4 h-4 text-green-500" />
                   ) : (
-                    <Bot size={16} className="text-blue-400" />
+                    <WifiOff className="w-4 h-4 text-red-500" />
                   )}
-                </div>
-              )}
-
-              {/* Message Content */}
-              <div className={`max-w-2xl ${message.type === 'user' ? 'order-1' : ''}`}>
-                <div className={`rounded-2xl p-4 ${
-                  message.type === 'user'
-                    ? 'bg-blue-600 text-white ml-auto'
-                    : message.type === 'system'
-                    ? 'bg-purple-600/20 border border-purple-500/30'
-                    : 'bg-white/10 border border-white/20'
-                }`}>
-                  {/* Message Header */}
-                  {message.type === 'assistant' && message.responseType && (
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getResponseTypeColor(message.responseType)}`}>
-                        {getResponseTypeLabel(message.responseType)}
-                      </span>
-                      
-                      {message.cost && message.cost > 0 && (
-                        <span className="text-xs text-gray-400">
-                          £{message.cost.toFixed(4)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Safety Alert Banner */}
-                  {message.metadata?.containsSafetyEscalation && (
-                    <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-3 flex items-center gap-2">
-                      <Shield size={16} className="text-red-400" />
-                      <span className="text-sm font-medium text-red-300">Safety Protocol Activated</span>
-                    </div>
-                  )}
-
-                  {/* Message Text */}
-                  <div className="prose prose-invert max-w-none">
-                    {message.content.split('\n').map((line, index) => (
-                      <p key={index} className={`${index > 0 ? 'mt-2' : ''} ${
-                        line.startsWith('**') ? 'font-semibold' : ''
-                      }`}>
-                        {line.replace(/\*\*(.*?)\*\*/g, '$1')}
-                      </p>
-                    ))}
-                  </div>
-
-                  {/* Message Actions */}
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/10">
-                    <span className="text-xs text-gray-400">
-                      {message.timestamp.toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </span>
-                    
-                    <button
-                      onClick={() => copyMessage(message.content)}
-                      className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
-                      title="Copy message"
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </div>
+                  <span className={`text-xs ${isOnline ? 'text-green-600' : 'text-red-600'}`}>
+                    {isOnline ? 'Live' : 'Offline'}
+                  </span>
                 </div>
               </div>
-
-              {/* User Avatar */}
-              {message.type === 'user' && (
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <User size={16} className="text-white" />
+              
+              {currentEquipment && (
+                <div className="flex items-center space-x-4 text-sm">
+                  <div className="flex items-center space-x-1">
+                    <MapPin className="w-4 h-4 text-gray-500" />
+                    <span className="text-gray-600">{currentEquipment.location}</span>
+                  </div>
+                  <Badge variant="outline" className={`${
+                    currentEquipment.status === 'operational' ? 'text-green-700 border-green-300' :
+                    currentEquipment.status === 'maintenance_required' ? 'text-orange-700 border-orange-300' :
+                    'text-red-700 border-red-300'
+                  }`}>
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    {currentEquipment.status.replace('_', ' ')}
+                  </Badge>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={startScanning}
+                    className="flex items-center space-x-1"
+                  >
+                    <QrCode className="w-3 h-3" />
+                    <span>Scan QR</span>
+                  </Button>
                 </div>
               )}
             </div>
-          ))}
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex gap-3 justify-start">
-              <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
-                <Bot size={16} className="text-blue-400" />
-              </div>
-              <div className="bg-white/10 border border-white/20 rounded-2xl p-4 max-w-2xl">
-                <div className="flex items-center gap-2">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                  </div>
-                  <span className="text-sm text-gray-400">Analyzing your issue...</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Quick Response Buttons */}
-        {messages.length <= 1 && (
-          <div className="px-4 py-2 max-w-4xl mx-auto w-full">
-            <div className="flex flex-wrap gap-2 mb-4">
-              {quickResponses.map((response) => (
-                <button
-                  key={response}
-                  onClick={() => setInputMessage(response)}
-                  className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-blue-200 transition-colors border border-white/20"
-                >
-                  {response}
-                </button>
-              ))}
+            
+            {/* Cost Savings Display */}
+            <div className="text-right space-y-1">
+              <div className="text-2xl font-bold text-green-600">£{costStats.totalSavings.toFixed(2)}</div>
+              <div className="text-sm text-gray-600">Monthly Savings</div>
+              <div className="text-xs text-gray-500">Session: £{sessionCost.toFixed(3)}</div>
+              <div className="text-xs text-blue-600">{sites.length} sites connected</div>
             </div>
           </div>
-        )}
+        </CardHeader>
+      </Card>
 
-        {/* Input Area */}
-        <div className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
-          <div className="max-w-4xl mx-auto px-4 py-4">
-            <div className="flex gap-3 items-end">
-              <div className="flex-1 relative">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Describe the equipment issue..."
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  disabled={isLoading}
-                />
-              </div>
-              
-              <button
-                onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || isLoading}
-                className="p-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-xl text-white transition-colors flex items-center justify-center"
-              >
-                <Send size={20} />
-              </button>
-            </div>
-
-            {/* Session Stats */}
-            <div className="flex items-center justify-between mt-3 text-xs text-gray-400">
-              <div className="flex gap-4">
-                <span>{sessionStats.messageCount} messages</span>
-                <span>Pattern: {sessionStats.responseTypes.pattern_match}</span>
-                <span>AI: {sessionStats.responseTypes.ai_escalation}</span>
-                <span>Safety: {sessionStats.responseTypes.safety_escalation}</span>
-              </div>
-              
+      {/* Equipment Selection if none selected */}
+      {!currentEquipment && equipment.length > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
               <div>
-                Total cost: £{sessionStats.totalCost.toFixed(4)}
+                <h3 className="font-semibold text-orange-800">Select Equipment</h3>
+                <p className="text-sm text-orange-600">Choose equipment to start troubleshooting</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {equipment.slice(0, 4).map(eq => (
+                  <Button
+                    key={eq.id}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedEquipmentId(eq.id)}
+                    className="text-xs"
+                  >
+                    {eq.name}
+                  </Button>
+                ))}
               </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Chat Interface */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Main Chat Area */}
+        <div className="lg:col-span-3">
+          <Card className="h-[600px] flex flex-col">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <MessageCircle className="w-5 h-5 text-blue-600" />
+                  <h2 className="font-semibold">Live Troubleshooting Session</h2>
+                </div>
+                <Badge variant="secondary">
+                  <span className="flex items-center">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                    Active
+                  </span>
+                </Badge>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="flex-1 p-0">
+              <div className="h-full p-4 overflow-y-auto">
+                <div className="space-y-4">
+                  {messages.length === 0 && currentEquipment && (
+                    <div className="text-center text-gray-500 py-8">
+                      <Bot className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <p className="text-lg">Welcome to CaterBot!</p>
+                      <p className="text-sm">I can see you've selected {currentEquipment.name}. How can I help troubleshoot today?</p>
+                    </div>
+                  )}
+                  
+                  {messages.map((message) => (
+                    <div key={message.id} className={`flex ${message.user_message ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`flex space-x-3 max-w-[80%] ${message.user_message ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                        <div className="w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center text-white">
+                          {message.user_message ? (
+                            <div className="w-full h-full bg-blue-500 rounded-full flex items-center justify-center">
+                              <User className="w-4 h-4" />
+                            </div>
+                          ) : (
+                            <div className="w-full h-full bg-indigo-500 rounded-full flex items-center justify-center">
+                              <Bot className="w-4 h-4" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className={`rounded-lg p-3 ${
+                          message.user_message 
+                            ? 'bg-blue-500 text-white' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          <div className="whitespace-pre-wrap">
+                            {message.user_message || message.ai_response}
+                          </div>
+                          
+                          {message.confidence_score && (
+                            <div className="mt-2 flex items-center space-x-2 text-xs opacity-75">
+                              <span>Confidence: {(message.confidence_score * 100).toFixed(0)}%</span>
+                              {message.cost_gbp && (
+                                <span>• £{message.cost_gbp.toFixed(3)}</span>
+                              )}
+                              {message.response_type && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {message.response_type}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          
+                          <div className="text-xs opacity-60 mt-1">
+                            {new Date(message.created_at).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {chatLoading && (
+                    <div className="flex justify-start">
+                      <div className="flex space-x-3 max-w-[80%]">
+                        <div className="w-8 h-8 flex-shrink-0 rounded-full bg-indigo-500 flex items-center justify-center text-white">
+                          <Bot className="w-4 h-4" />
+                        </div>
+                        <div className="rounded-lg p-3 bg-gray-100">
+                          <TypingIndicator />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div ref={messagesEndRef} />
+              </div>
+            </CardContent>
+            
+            {/* Message Input */}
+            <div className="border-t p-4">
+              <div className="flex space-x-2">
+                <Input
+                  placeholder={currentEquipment ? "Describe the issue you're experiencing..." : "Select equipment first to start troubleshooting..."}
+                  value={currentMessage}
+                  onChange={(e) => setCurrentMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  disabled={!currentEquipment || chatLoading || !isOnline}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={handleSendMessage}
+                  disabled={!currentMessage.trim() || chatLoading || !currentEquipment || !isOnline}
+                  className="px-4"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
+                <span>
+                  {!isOnline ? 'Offline - Connect to internet' : 
+                   !currentEquipment ? 'Select equipment to start' :
+                   'Type your message and press Enter'}
+                </span>
+                <span>Powered by AI • £{sessionCost.toFixed(3)} session cost</span>
+              </div>
+            </div>
+          </Card>
         </div>
-      </main>
+        
+        {/* Sidebar with Equipment Details */}
+        <div className="space-y-4">
+          {/* Equipment Status */}
+          <Card>
+            <CardHeader className="pb-3">
+              <h3 className="font-semibold flex items-center">
+                <Settings className="w-4 h-4 mr-2" />
+                Equipment Status
+              </h3>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {currentEquipment ? (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Status</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {currentEquipment.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Location</span>
+                      <span className="font-medium">{currentEquipment.location}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Type</span>
+                      <span className="font-medium">{currentEquipment.equipment_type}</span>
+                    </div>
+                    {currentEquipment.last_maintenance && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Last Service</span>
+                        <span className="font-medium">
+                          {new Date(currentEquipment.last_maintenance).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="pt-2 border-t">
+                    <div className="text-xs text-gray-500 mb-1">Performance</div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          currentEquipment.status === 'operational' ? 'bg-green-500' :
+                          currentEquipment.status === 'maintenance_required' ? 'bg-orange-500' : 'bg-red-500'
+                        }`}
+                        style={{ 
+                          width: `${
+                            currentEquipment.status === 'operational' ? 85 :
+                            currentEquipment.status === 'maintenance_required' ? 60 : 30
+                          }%` 
+                        }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      {currentEquipment.status === 'operational' ? 'Running well' :
+                       currentEquipment.status === 'maintenance_required' ? 'Needs attention' :
+                       'Requires service'}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  <Settings className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm">Select equipment to view status</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Cost Savings */}
+          <Card className="bg-green-50 border-green-200">
+            <CardHeader className="pb-3">
+              <h3 className="font-semibold text-green-800 flex items-center">
+                <DollarSign className="w-4 h-4 mr-2" />
+                ROI Tracking
+              </h3>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div>
+                  <div className="text-2xl font-bold text-green-700">£{costStats.totalSavings.toFixed(2)}</div>
+                  <div className="text-sm text-green-600">This Month</div>
+                </div>
+                
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Service calls avoided</span>
+                    <span className="font-medium">{costStats.serviceCallsAvoided}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total sessions</span>
+                    <span className="font-medium">{costStats.totalSessions}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total cost</span>
+                    <span className="font-medium">£{costStats.totalCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Avg per session</span>
+                    <span className="font-medium">£{costStats.avgCostPerSession.toFixed(3)}</span>
+                  </div>
+                </div>
+                
+                <div className="border border-green-200 bg-green-50 rounded p-2">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+                    <div className="text-green-800 text-xs">
+                      ROI: {costStats.totalSavings > 0 ? 
+                        `${((costStats.totalSavings - costStats.totalCost) / Math.max(costStats.totalCost, 1) * 100).toFixed(0)}% savings` :
+                        'Building savings data...'
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
